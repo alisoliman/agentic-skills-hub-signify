@@ -97,8 +97,8 @@ function showRoute() {
   return true;
 }
 
-function detailSection(title, text) {
-  const section = el("section", { class: "detail-section" });
+function detailSection(title, text, className = "") {
+  const section = el("section", { class: `detail-section ${className}`.trim() });
   section.append(el("h2", {}, title), el("p", {}, text));
   return section;
 }
@@ -107,10 +107,10 @@ function renderSkillDetail(skill) {
   const detail = document.querySelector("#skill-detail");
   detail.replaceChildren(el("a", { href: "/" }, "Back to catalog"));
   detail.append(
-    detailSection("What it does", skill.description),
-    detailSection("When to use", skill.whenToUse),
+    detailSection("What it does", skill.description, "detail-purpose"),
+    detailSection("When to use", skill.whenToUse, "detail-usage"),
   );
-  const provenance = el("section", { class: "detail-section" });
+  const provenance = el("section", { class: "detail-section detail-provenance" });
   provenance.append(el("h2", {}, "Where it comes from"));
   const facts = el("dl", { class: "provenance" });
   for (const [label, value] of [
@@ -127,13 +127,13 @@ function renderSkillDetail(skill) {
   provenance.append(el("a", { href: skill.url, rel: "noreferrer" },
     skill.kind === "local" ? "View hub source and supporting files" : "View upstream source"));
   detail.append(provenance);
-  const install = el("section", { class: "detail-section" });
+  const install = el("section", { class: "detail-section detail-install" });
   install.append(el("h2", {}, "Install"), createInstallRow(skill));
   if (skill.footprint) install.append(createFootprint(skill.footprint));
   detail.append(install);
   const file = detailSection("Full skill file", skill.kind === "local"
     ? "Complete SKILL.md, including frontmatter. This is the hub's build-time copy, not a live upstream version. Supporting files are available through the hub source link above."
-    : "The full skill file is not hosted in this hub. Read it at the upstream source.");
+    : "The full skill file is not hosted in this hub. Read it at the upstream source.", "detail-content");
   if (skill.kind === "local") {
     const pre = el("pre", { class: "skill-file" });
     pre.append(el("code", {}, skill.skillFile));

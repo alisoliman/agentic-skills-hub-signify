@@ -155,6 +155,11 @@ test("direct local detail routes show the full literal file, provenance and work
   app.context.navigator = { clipboard: { writeText: async (text) => { copied = text; } } };
   await bootstrapPage(app);
   const detail = app.elements["#skill-detail"];
+  assert.deepEqual(
+    detail.children.filter((node) => node.tag === "section").map((node) => node.children[0].textContent),
+    ["What it does", "When to use", "Where it comes from", "Install", "Full skill file"],
+    "Keep the reading and keyboard order aligned with the purpose-to-content journey",
+  );
   assert.equal(app.elements["#catalog"].hidden, true);
   assert.equal(detail.hidden, false);
   assert.equal(app.elements["#hub-title"].textContent, "Microsoft Foundry");
@@ -185,6 +190,10 @@ test("external detail routes link upstream without loading or rendering a full f
   const detail = app.elements["#skill-detail"];
   const nodes = descendants(detail);
   assert.match(textOf(detail), /external.*Credited source.*github\/awesome-copilot.*See source/s);
+  assert.deepEqual(
+    nodes.filter((node) => node.tag === "h2").map((node) => node.textContent),
+    ["What it does", "When to use", "Where it comes from", "Install", "Full skill file"],
+  );
   assert.match(textOf(detail), /full skill file is not hosted in this hub/);
   assert.doesNotMatch(textOf(detail), /Context footprint|Hub repository|build-time copy/);
   assert.equal(nodes.some((node) => node.tag === "pre"), false);
