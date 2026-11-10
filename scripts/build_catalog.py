@@ -30,6 +30,7 @@ import shutil
 import sys
 from pathlib import Path
 from typing import Any, Mapping, Optional
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS_DIR = ROOT / "skills"
@@ -417,6 +418,48 @@ def load_display_metadata() -> dict[str, Any]:
     return data
 
 
+def validate_skill_name(name: Any) -> None:
+    if not isinstance(name, str) or not NAME_PATTERN.fullmatch(name):
+        raise ValueError(f"Skill name must be a lowercase URL-safe slug (got {name!r})")
+
+
+def validate_source_url(value: str) -> str:
+    parsed = urlsplit(value)
+    if (
+        parsed.scheme != "https" or not parsed.hostname
+        or parsed.username is not None or parsed.password is not None
+        or any(char.isspace() or ord(char) < 32 for char in value)
+    ):
+        raise ValueError(f"Source link must be an HTTPS URL (got {value!r})")
+    return value
+
+
+def skill_details(raw: Any, canonical_source: str = "") -> dict[str, str]:
+    fields = (
+        "whatItDoes", "whenToUse", "whenNotToUse", "exampleTask",
+        "author", "publisher", "canonicalSource", "guidanceOrigin",
+    )
+    if not isinstance(raw, dict) or set(raw) - set(fields):
+        raise ValueError("Skill details must be an object with recognized guidance and attribution fields")
+    details = {}
+    for field in fields:
+        value = raw.get(field, "")
+        if not isinstance(value, str) or any(ord(char) < 32 for char in value):
+            raise ValueError(f"Skill details.{field} must be plain text")
+        details[field] = value.strip()
+    if details["canonicalSource"]:
+        validate_source_url(details["canonicalSource"])
+    if canonical_source:
+        if details["canonicalSource"] and details["canonicalSource"] != canonical_source:
+            raise ValueError("Local canonical source must link to the checked-in SKILL.md")
+        details["canonicalSource"] = validate_source_url(canonical_source)
+    if details["guidanceOrigin"] not in ("", "demo"):
+        raise ValueError("Skill details.guidanceOrigin must be 'demo' or empty")
+    if any(details[field] for field in fields[:4]) and details["guidanceOrigin"] != "demo":
+        raise ValueError("Curated skill guidance must be labeled with guidanceOrigin 'demo'")
+    return details
+
+
 def load_local_skills(config: Mapping[str, Any]) -> list[dict[str, Any]]:
     display_path = CATALOG_DIR / "local-skills.json"
     display_metadata = load_display_metadata()
@@ -432,6 +475,7 @@ def load_local_skills(config: Mapping[str, Any]) -> list[dict[str, Any]]:
             raise ValueError(f"{skill_file} needs a description")
         if name != folder:
             raise ValueError(f"{skill_file}: name '{name}' must match its folder name '{folder}'")
+        validate_skill_name(name)
         display = display_metadata.get(name, {})
         skills.append(
             {
@@ -446,6 +490,10 @@ def load_local_skills(config: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "url": f"https://github.com/{config['repo']}/tree/main/skills/{folder}",
                 "installCommand": local_skill_install_command(config["repo"], name),
                 "footprint": context_footprint(skill_file.parent, metadata, body),
+                "details": skill_details(
+                    display.get("details", {}),
+                    f"https://github.com/{config['repo']}/blob/main/skills/{folder}/SKILL.md",
+                ),
             }
         )
     known = {skill["name"] for skill in skills}
@@ -466,6 +514,8 @@ def load_external_skills() -> list[dict[str, Any]]:
         for required in ("name", "title", "description", "package", "url"):
             if not item.get(required):
                 raise ValueError(f"{source_path}: external entry missing {required}")
+        validate_skill_name(item["name"])
+        validate_source_url(item["url"])
         skills.append(
             {
                 "name": item["name"],
@@ -479,6 +529,7 @@ def load_external_skills() -> list[dict[str, Any]]:
                 "url": item["url"],
                 "installCommand": external_install_command(item),
                 "package": item["package"],
+                "details": skill_details(item.get("details", {})),
             }
         )
     return skills

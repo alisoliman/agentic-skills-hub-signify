@@ -15,11 +15,15 @@ function filterCards(filters) {
   const count = { textContent: "" };
   const empty = { hidden: true };
   const context = vm.createContext({
+    URLSearchParams,
+    history: { replaceState() {} },
+    location: { hash: "" },
     document: {
       querySelector(selector) {
         return { "#result-count": count, "#empty-state": empty }[selector];
       },
       querySelectorAll(selector) {
+        if (selector === ".skill-title-link") return [];
         assert.equal(selector, ".skill-card");
         return cards;
       },

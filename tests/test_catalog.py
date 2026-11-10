@@ -178,6 +178,68 @@ class CatalogTests(unittest.TestCase):
         self.assertGreater(foundry["files"], 50)
         self.assertGreater(foundry["fileTokens"], 20 * foundry["indexTokens"])
 
+    def test_details_expose_guidance_and_local_canonical_instruction_sources(self):
+        for skill in catalog.load_local_skills(self.config) + catalog.load_external_skills():
+            details = skill["details"]
+            for field in ("whatItDoes", "whenToUse", "whenNotToUse", "exampleTask"):
+                self.assertTrue(details[field], f"{skill['name']}: {field}")
+            self.assertEqual(details["guidanceOrigin"], "demo")
+            self.assertTrue(details["author"] or details["publisher"])
+            self.assertEqual(urlparse(details["canonicalSource"]).scheme, "https")
+            if skill["kind"] == "local":
+                expected = f"https://github.com/{self.config['repo']}/blob/main/skills/{skill['name']}/SKILL.md"
+                self.assertEqual(details["canonicalSource"], expected)
+
+    def test_missing_details_remain_empty_and_invalid_details_fail_explicitly(self):
+        self.assertTrue(all(value == "" for value in catalog.skill_details({}).values()))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write(root / "external-skills.json", json.dumps([{
+                "name": "incomplete-guidance", "title": "Incomplete guidance", "description": "Demo",
+                "package": "o/r", "url": "https://example.com/catalog",
+            }]))
+            with patch.object(catalog, "CATALOG_DIR", root):
+                skill = catalog.load_external_skills()[0]
+            self.assertTrue(all(value == "" for value in skill["details"].values()))
+            self.assertEqual(skill["url"], "https://example.com/catalog")
+        for details in (
+            None, [], {"whenToUse": 42}, {"author": ["Unknown"]}, {"whatItDoes": "x\n"},
+            {"unexpected": "typo"}, {"guidanceOrigin": "official"},
+            {"whenToUse": "Unlabeled guidance"},
+            {"canonicalSource": "http://example.com/SKILL.md"},
+            {"canonicalSource": "https:///SKILL.md"},
+            {"canonicalSource": "https://example.com/a b"},
+            {"canonicalSource": "https://user:password@example.com"},
+        ):
+            with self.subTest(details=details), self.assertRaises(ValueError):
+                catalog.skill_details(details)
+        with self.assertRaisesRegex(ValueError, "checked-in SKILL.md"):
+            catalog.skill_details({"canonicalSource": "https://example.com"}, "https://github.com/o/r/blob/main/skills/a/SKILL.md")
+
+    def test_stable_ids_reject_invalid_names_and_cross_kind_duplicates(self):
+        for name in ("Uppercase", "with space", "../skill", "under_score", "a--b", "", 42):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "URL-safe slug"):
+                catalog.validate_skill_name(name)
+        local = {"name": "same-id", "title": "First title", "kind": "local"}
+        external = {"name": "same-id", "title": "Renamed title", "kind": "external"}
+        with patch.object(catalog, "load_local_skills", return_value=[local]), patch.object(
+            catalog, "load_external_skills", return_value=[external]
+        ):
+            with self.assertRaisesRegex(ValueError, "unique across the catalog"):
+                catalog.build_hub(self.config)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write(root / "Bad-ID" / "SKILL.md", "---\nname: Bad-ID\ndescription: x\n---\n")
+            with patch.object(catalog, "SKILLS_DIR", root), patch.object(catalog, "CATALOG_DIR", root):
+                with self.assertRaisesRegex(ValueError, "URL-safe slug"):
+                    catalog.load_local_skills(self.config)
+            write(root / "external-skills.json", json.dumps([dict(
+                external, name="bad/id", description="x", package="o/r", url="https://example.com"
+            )]))
+            with patch.object(catalog, "CATALOG_DIR", root):
+                with self.assertRaisesRegex(ValueError, "URL-safe slug"):
+                    catalog.load_external_skills()
+
 
 class AgentSkillSyncTests(unittest.TestCase):
     def test_sync_copies_and_removes_stale_files_only_inside_agent_skills(self):
@@ -314,10 +376,14 @@ class SiteTests(unittest.TestCase):
                 self.assertEqual(parsed.scheme, "https")
             elif parsed.path:
                 self.assertTrue(parsed.path.startswith("/"), f"use a root-absolute path: {link}")
-                self.assertTrue((catalog.SITE_DIR / unquote(parsed.path).lstrip("/")).is_file(), link)
+                target = unquote(parsed.path).lstrip("/") or "index.html"
+                self.assertTrue((catalog.SITE_DIR / target).is_file(), link)
             elif parsed.fragment:
                 self.assertIn(parsed.fragment, page.ids)
-        for element_id in ("build-badge", "hub-notice", "hub-eyebrow", "skills-grid"):
+        for element_id in (
+            "build-badge", "hub-notice", "hub-eyebrow", "skills-grid",
+            "skill-detail", "return-to-catalog", "copy-status",
+        ):
             self.assertIn(element_id, page.ids)
 
     def test_navigation_fallback_serves_routes_but_not_data_or_assets(self):

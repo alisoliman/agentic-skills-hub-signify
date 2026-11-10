@@ -3,23 +3,55 @@
     "description": "Stress-test a plan in rounds of questions. Explore facts yourself, put each decision to the user, and wait for shared understanding before acting.",
     "license": "MIT",
     "source": "mattpocock/skills",
-    "tags": ["requirements", "planning", "demo"]
+    "tags": ["requirements", "planning", "demo"],
+    "details": {
+      "whatItDoes": "Turns an uncertain plan into a shared set of decisions by asking questions in rounds before implementation.",
+      "whenToUse": "Use it when you want to challenge assumptions and settle requirements before building.",
+      "whenNotToUse": "Avoid it when decisions are already settled and you want immediate implementation; the skill waits for your answers and confirmation.",
+      "exampleTask": "Stress-test a plan to add skill detail pages to this demo hub before we implement it.",
+      "author": "Matt Pocock",
+      "guidanceOrigin": "demo"
+    }
   },
   "frontend-design": {
     "description": "Design and implement distinctive, polished interfaces. Use it to improve a working page's typography, layout, color, and visual hierarchy.",
     "license": "Apache-2.0",
     "source": "anthropics/skills",
-    "tags": ["design", "frontend", "demo"]
+    "tags": ["design", "frontend", "demo"],
+    "details": {
+      "whatItDoes": "Builds working frontend interfaces with an intentional visual direction, from typography and color to layout and interaction.",
+      "whenToUse": "Use it to create a page or component, or to give an existing interface a deliberate design pass.",
+      "whenNotToUse": "Avoid it for backend-only work or when no visual changes are wanted; its instructions encourage distinctive design choices.",
+      "exampleTask": "Give this demo skill catalog a cohesive design pass while preserving keyboard access and mobile readability.",
+      "publisher": "Anthropic (anthropics/skills)",
+      "guidanceOrigin": "demo"
+    }
   },
   "ship-it": {
     "description": "Ship the current change for review: run the tests, commit to a feature branch, open or update the pull request, and wait for its live preview URL.",
     "license": "MIT",
     "source": "this hub",
-    "tags": ["github", "deploy", "workflow", "demo"]
+    "tags": ["github", "deploy", "workflow", "demo"],
+    "details": {
+      "whatItDoes": "Runs repository tests, commits intended changes on a feature branch, opens or updates a pull request, and verifies its Azure preview.",
+      "whenToUse": "Use it when a change in this hub is ready for human review on a live preview.",
+      "whenNotToUse": "Do not use it to merge, push to main, or rewrite published history. Shipping requires GitHub access and a configured Azure deployment workflow.",
+      "exampleTask": "Ship this demo hub change as a pull request and return its verified preview URL without merging.",
+      "author": "Ali Soliman and Agentic Skills Hub contributors",
+      "guidanceOrigin": "demo"
+    }
   },
   "microsoft-foundry": {
     "description": "Deploy, evaluate, and manage Microsoft Foundry agents. Reference content only for this demo; using it requires Azure access and the Azure MCP tools.",
     "source": "Microsoft",
-    "tags": ["azure", "agents", "reference"]
+    "tags": ["azure", "agents", "reference"],
+    "details": {
+      "whatItDoes": "Guides Microsoft Foundry agent development, deployment, evaluation, and troubleshooting using workflow-specific references.",
+      "whenToUse": "Use it for Foundry agent or model tasks when you have Azure access and the required Azure MCP tools. It is reference-only in this demo.",
+      "whenNotToUse": "Do not use it for Azure Functions, App Service, or general Azure deployment preparation, or without the required Foundry tools and permissions.",
+      "exampleTask": "Plan a batch evaluation of a sample Foundry agent and identify the required tools and evaluation dataset.",
+      "author": "Microsoft",
+      "guidanceOrigin": "demo"
+    }
   }
 }

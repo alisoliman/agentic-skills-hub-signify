@@ -31,6 +31,15 @@ async function bootstrap() {
 }
 
 function renderError(err) {
+  if (routeSkillName(location.pathname) !== null) {
+    restoreFilters(location.search);
+    showDetailShell();
+    document.title = "Skill details unavailable";
+    setText("#hub-title", "Skill details unavailable");
+    setText("#hub-tagline", "The catalog could not be loaded.");
+    setText("#detail-content", `Couldn't load skill data (${err.message}). Run \`npm run build\`.`);
+    return;
+  }
   const grid = document.querySelector("#skills-grid");
   if (grid) grid.replaceChildren();
   const empty = document.querySelector("#empty-state");
@@ -45,11 +54,127 @@ function renderAll() {
   applyTheme(state.config.theme);
   renderHero();
   renderBuildBadge();
+  renderFooter();
+  restoreFilters(location.search);
+  if (routeSkillName(location.pathname) !== null) {
+    showDetailShell();
+    renderDetail(state.skills.find((skill) => skill.name === routeSkillName(location.pathname)));
+    return;
+  }
   renderSignal();
   renderTagCloud();
   renderCards();
-  renderFooter();
+  syncFilterControls();
   applyFilters();
+}
+
+function routeSkillName(pathname) {
+  if (pathname === "/" || pathname === "/index.html") return null;
+  const match = /^\/skills\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/.exec(pathname);
+  return match ? match[1] : "";
+}
+
+function restoreFilters(search) {
+  const params = new URLSearchParams(search);
+  state.query = params.get("q") || "";
+  const kind = params.get("kind");
+  state.activeKind = ["local", "external"].includes(kind) ? kind : "all";
+  state.activeTag = params.get("tag") || "";
+}
+
+function filterQuery(filters = state) {
+  const params = new URLSearchParams();
+  if (filters.query) params.set("q", filters.query);
+  if (filters.activeKind !== "all") params.set("kind", filters.activeKind);
+  if (filters.activeTag) params.set("tag", filters.activeTag);
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+function detailUrl(name) {
+  return `/skills/${name}${filterQuery()}`;
+}
+
+function showDetailShell() {
+  document.querySelector("#catalog").hidden = true;
+  document.querySelector("#skill-detail").hidden = false;
+  document.querySelector(".hero").classList.add("detail-hero");
+  document.querySelector(".hero-actions").hidden = true;
+  document.querySelector(".signal-panel").hidden = true;
+  setAttr(".skip-link", "href", "#skill-detail");
+  setText(".skip-link", "Skip to skill details");
+  setText("#hub-eyebrow", "Skill details");
+  setAttr("#return-to-catalog", "href", `/${filterQuery()}#catalog`);
+}
+
+function renderDetail(skill) {
+  const content = document.querySelector("#detail-content");
+  content.replaceChildren();
+  if (!skill) {
+    document.title = `Skill not found · ${state.config.title}`;
+    setText("#hub-title", "Skill not found");
+    setText("#hub-tagline", "This URL does not match a catalog skill. Return to the catalog to find one.");
+    return;
+  }
+  document.title = `${skill.title} · ${state.config.title}`;
+  setText("#hub-title", skill.title);
+  setText("#hub-tagline", skill.description);
+  setAttr("meta[name=description]", "content", skill.description);
+  setAttr("meta[property='og:title']", "content", document.title);
+  setAttr("meta[property='og:description']", "content", skill.description);
+
+  const details = skill.details || {};
+  const guidance = el("div", { class: "detail-guidance" });
+  guidance.append(el("p", { class: "guidance-notice" }, details.guidanceOrigin === "demo"
+    ? "Demo-authored guidance, curated from the linked source. It is not part of the skill instructions."
+    : "Curated usage guidance is unavailable."));
+  for (const [field, title, missing] of [
+    ["whatItDoes", "What it does", "Purpose guidance is unavailable."],
+    ["whenToUse", "When to use it", "Usage guidance is unavailable."],
+    ["whenNotToUse", "When not to use it", "Limitations guidance is unavailable; do not assume there are no limitations."],
+    ["exampleTask", "Example task", "An example task is unavailable."],
+  ]) {
+    const section = el("section", {
+      class: `detail-section detail-${field}`,
+      "aria-labelledby": `detail-${field}-title`,
+    });
+    section.append(el("h2", { id: `detail-${field}-title` }, title), el("p", {}, details[field] || missing));
+    guidance.append(section);
+  }
+  content.append(guidance);
+
+  const provenance = el("section", {
+    class: "detail-section detail-provenance", "aria-labelledby": "detail-source-title",
+  });
+  provenance.append(el("h2", { id: "detail-source-title" }, "Source and attribution"));
+  const attribution = el("dl", { class: "detail-attribution" });
+  for (const [label, value] of [
+    ["Author", details.author || "Author attribution is unavailable."],
+    ["Publisher", details.publisher || "Publisher attribution is unavailable."],
+    ["Catalog kind", skill.kind],
+    ["License", skill.license],
+  ]) {
+    const item = el("div");
+    item.append(el("dt", {}, label), el("dd", {}, value));
+    attribution.append(item);
+  }
+  provenance.append(attribution);
+  const source = el("p");
+  source.append(el("a", { href: details.canonicalSource || skill.url, rel: "noreferrer" },
+    details.canonicalSource ? "Canonical source · full skill instructions" : "Catalog source"));
+  provenance.append(source);
+  if (!details.canonicalSource) {
+    provenance.append(el("p", {}, "A canonical instruction source has not been identified. The catalog source link is retained."));
+  }
+  provenance.append(el("p", { class: "guidance-notice" },
+    "Attribution identifies a source, not verification of safety or an official endorsement."));
+  content.append(provenance);
+
+  const install = el("section", {
+    class: "detail-section detail-install", "aria-labelledby": "detail-install-title",
+  });
+  install.append(el("h2", { id: "detail-install-title" }, "Install command"), createInstallRow(skill));
+  content.append(install);
 }
 
 function applyTheme(theme) {
@@ -153,7 +278,11 @@ function createCard(skill, idx) {
   );
   card.append(topline);
 
-  card.append(el("h3", {}, skill.title));
+  const title = el("h3");
+  const titleLink = el("a", { class: "skill-title-link", href: detailUrl(skill.name) }, skill.title);
+  titleLink.dataset.name = skill.name;
+  title.append(titleLink);
+  card.append(title);
   card.append(el("p", { class: "description" }, skill.description));
 
   const tags = el("div", { class: "tags" });
@@ -162,6 +291,17 @@ function createCard(skill, idx) {
 
   if (skill.footprint) card.append(createFootprint(skill.footprint));
 
+  card.append(createInstallRow(skill));
+
+  const footer = el("div", { class: "card-footer" });
+  footer.append(el("a", { href: skill.url, rel: "noreferrer" }, "Source"));
+  if (skill.source) footer.append(el("span", { class: "source-name" }, skill.source));
+  card.append(footer);
+
+  return card;
+}
+
+function createInstallRow(skill) {
   const installRow = el("div", { class: "install-row" });
   installRow.append(el("code", {}, skill.installCommand));
   const copyBtn = el(
@@ -170,16 +310,10 @@ function createCard(skill, idx) {
     "Copy",
   );
   copyBtn.dataset.command = skill.installCommand;
+  copyBtn.dataset.skillTitle = skill.title;
   copyBtn.addEventListener("click", () => copyInstall(copyBtn));
   installRow.append(copyBtn);
-  card.append(installRow);
-
-  const footer = el("div", { class: "card-footer" });
-  footer.append(el("a", { href: skill.url, rel: "noreferrer" }, "Source"));
-  if (skill.source) footer.append(el("span", { class: "source-name" }, skill.source));
-  card.append(footer);
-
-  return card;
+  return installRow;
 }
 
 // Context footprint: what a skill costs the agent, by when it is loaded (estimated tokens).
@@ -234,37 +368,47 @@ function setAttr(sel, attr, value) {
 }
 
 async function copyInstall(btn) {
-  const original = btn.textContent;
+  clearTimeout(btn.copyResetTimer);
+  setText("#copy-status", "");
+  btn.classList.remove("copied");
   try {
     await navigator.clipboard.writeText(btn.dataset.command);
     btn.textContent = "Copied";
     btn.classList.add("copied");
+    setText("#copy-status", `Install command for ${btn.dataset.skillTitle} copied to clipboard.`);
   } catch {
     btn.textContent = "Copy failed";
+    setText("#copy-status", `Couldn't copy the install command for ${btn.dataset.skillTitle}. Select and copy the displayed command manually.`);
   }
-  setTimeout(() => {
-    btn.textContent = original;
+  btn.copyResetTimer = setTimeout(() => {
+    btn.textContent = "Copy";
     btn.classList.remove("copied");
   }, 1300);
 }
 
 function toggleTag(tag) {
   state.activeTag = state.activeTag === tag ? "" : tag;
+  syncFilterControls();
+  applyFilters();
+}
+
+function syncFilterControls() {
+  document.querySelector("#search").value = state.query;
   document.querySelectorAll(".tag-filter").forEach((b) => {
     const active = b.dataset.tag === state.activeTag;
     b.classList.toggle("active", active);
     b.setAttribute("aria-pressed", String(active));
   });
-  applyFilters();
+  document.querySelectorAll(".filter").forEach((b) => {
+    const active = b.dataset.kind === state.activeKind;
+    b.classList.toggle("active", active);
+    b.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function setKind(kind) {
   state.activeKind = kind;
-  document.querySelectorAll(".filter").forEach((b) => {
-    const active = b.dataset.kind === kind;
-    b.classList.toggle("active", active);
-    b.setAttribute("aria-pressed", String(active));
-  });
+  syncFilterControls();
   applyFilters();
 }
 
@@ -288,9 +432,15 @@ function applyFilters() {
   setText("#result-count", `${visible} ${visible === 1 ? "skill" : "skills"}`);
   const empty = document.querySelector("#empty-state");
   if (empty) empty.hidden = visible !== 0;
+  const query = filterQuery();
+  history.replaceState(null, "", `/${query}${location.hash}`);
+  document.querySelectorAll(".skill-title-link").forEach((link) => {
+    link.setAttribute("href", detailUrl(link.dataset.name));
+  });
 }
 
 function wireStaticEvents() {
+  if (routeSkillName(location.pathname) !== null) return;
   const search = document.querySelector("#search");
   search.addEventListener("input", (e) => {
     state.query = e.target.value;

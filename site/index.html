@@ -36,7 +36,7 @@
     </aside>
   </header>
 
-  <main id="catalog" class="catalog-shell">
+  <main id="catalog" class="catalog-shell" tabindex="-1">
     <section class="toolbar" aria-label="Catalog controls">
       <label class="search-box">
         <span>Search the hub</span>
@@ -67,6 +67,13 @@
       <em>Files</em> are supporting files read only when needed.
     </p>
   </main>
+
+  <main id="skill-detail" class="catalog-shell detail-shell" tabindex="-1" hidden>
+    <a id="return-to-catalog" href="/">Return to catalog</a>
+    <div id="detail-content" aria-live="polite"></div>
+  </main>
+
+  <p id="copy-status" class="copy-status" role="status" aria-live="polite" aria-atomic="true"></p>
 
   <footer class="footer">
     <p id="hub-notice">Demo content for a GitHub Innovation Series session.</p>

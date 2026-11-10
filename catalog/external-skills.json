@@ -7,17 +7,35 @@
     "skill": "github-actions-docs",
     "url": "https://skills.sh/xixu-me/skills/github-actions-docs",
     "license": "See source",
-    "tags": ["github", "actions", "docs"]
+    "tags": ["github", "actions", "docs"],
+    "details": {
+      "whatItDoes": "Answers GitHub Actions questions using relevant official documentation rather than relying on remembered workflow patterns.",
+      "whenToUse": "Use it for workflow syntax, runners, caching, reusable workflows, or documentation-grounded Actions explanations.",
+      "whenNotToUse": "Do not use it to triage a specific failed PR check, manage repository branches, or configure CodeQL or Dependabot; the source routes those tasks elsewhere.",
+      "exampleTask": "Explain reusable workflows versus composite actions for a demo repository, with exact GitHub documentation links.",
+      "publisher": "xixu-me/skills",
+      "canonicalSource": "https://github.com/xixu-me/skills/blob/main/skills/github-actions-docs/SKILL.md",
+      "guidanceOrigin": "demo"
+    }
   },
   {
     "name": "git-commit",
     "title": "Git Commit",
-    "description": "Draft clear, conventional commit messages from the current repository changes.",
+    "description": "Review repository changes and make focused commits with clear, conventional commit messages.",
     "package": "github/awesome-copilot",
     "skill": "git-commit",
     "url": "https://skills.sh/github/awesome-copilot/git-commit",
     "license": "See source",
-    "tags": ["github", "git", "workflow"]
+    "tags": ["github", "git", "workflow"],
+    "details": {
+      "whatItDoes": "Examines the diff, stages related files, writes a Conventional Commits message, and creates a Git commit.",
+      "whenToUse": "Use it when you want to commit repository changes or split them into focused commits.",
+      "whenNotToUse": "Do not use it for a message-only request, pushing, opening pull requests, rebasing, or changing commit history. It stages files and creates commits.",
+      "exampleTask": "Review the demo catalog changes and make a focused conventional commit without pushing.",
+      "publisher": "github/awesome-copilot",
+      "canonicalSource": "https://github.com/github/awesome-copilot/blob/main/skills/git-commit/SKILL.md",
+      "guidanceOrigin": "demo"
+    }
   },
   {
     "name": "azure-deployment-preflight",
@@ -27,7 +45,16 @@
     "skill": "azure-deployment-preflight",
     "url": "https://skills.sh/github/awesome-copilot/azure-deployment-preflight",
     "license": "See source",
-    "tags": ["azure", "deploy", "infrastructure"]
+    "tags": ["azure", "deploy", "infrastructure"],
+    "details": {
+      "whatItDoes": "Checks Bicep syntax, previews Azure resource changes, and reports deployment issues and permission-check results before provisioning.",
+      "whenToUse": "Use it before a Bicep deployment through az or azd when you want to understand planned changes and validation gaps.",
+      "whenNotToUse": "Do not treat the report as a deployment or a guarantee of success. Missing Azure tools, access, or permissions can leave checks incomplete.",
+      "exampleTask": "Validate the demo infrastructure Bicep and report planned resource changes before provisioning.",
+      "publisher": "github/awesome-copilot",
+      "canonicalSource": "https://github.com/github/awesome-copilot/blob/main/skills/azure-deployment-preflight/SKILL.md",
+      "guidanceOrigin": "demo"
+    }
   },
   {
     "name": "documentation-writer",
@@ -37,7 +64,16 @@
     "skill": "documentation-writer",
     "url": "https://skills.sh/github/awesome-copilot/documentation-writer",
     "license": "See source",
-    "tags": ["docs", "writing", "github"]
+    "tags": ["docs", "writing", "github"],
+    "details": {
+      "whatItDoes": "Creates software documentation organized as tutorials, how-to guides, reference, or explanation using the Diataxis framework.",
+      "whenToUse": "Use it when you can clarify the audience, goal, scope, and document type, then approve an outline before drafting.",
+      "whenNotToUse": "Avoid it when you want an immediate draft without discussion. Do not expect external research unless you provide links and explicitly request it.",
+      "exampleTask": "Prepare an outline for a newcomer how-to guide to browsing this demo skill catalog.",
+      "publisher": "github/awesome-copilot",
+      "canonicalSource": "https://github.com/github/awesome-copilot/blob/main/skills/documentation-writer/SKILL.md",
+      "guidanceOrigin": "demo"
+    }
   }
 ]
 
