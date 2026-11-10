@@ -69,7 +69,7 @@ gh workflow run deploy.yml
 
 | Skill | Agent skill here | Source and license |
 | --- | --- | --- |
-| `grilling` | Yes | [mattpocock/skills](https://github.com/mattpocock/skills) by Matt Pocock, MIT. `SKILL.md` (design-tree and frontier revision), `agents/openai.yaml` and `LICENSE` are unchanged; provenance is recorded in `skills-lock.json`. |
+| `grilling` | Yes | [mattpocock/skills](https://github.com/mattpocock/skills) by Matt Pocock, MIT. `SKILL.md` and `agents/openai.yaml` (the version that asks one question at a time, installed 2026-08-03) and `LICENSE` are unchanged; provenance is recorded in `skills-lock.json`. |
 | `frontend-design` | Yes | [anthropics/skills](https://github.com/anthropics/skills/tree/main/skills/frontend-design) by Anthropic, Apache-2.0 (`LICENSE.txt`), unchanged; recorded in `skills-lock.json`. |
 | `ship-it` | Yes | This hub, MIT. Runs the tests, commits to a feature branch, opens or updates the pull request and waits for its preview URL. An example of a skill with a bundled script. |
 | `microsoft-foundry` | No, catalog only | Microsoft, MIT. Reference content: using it needs Azure access and the Azure MCP tools. |
