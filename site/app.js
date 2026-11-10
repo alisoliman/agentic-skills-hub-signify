@@ -31,6 +31,15 @@ async function bootstrap() {
 }
 
 function renderError(err) {
+  const detail = document.querySelector("#skill-detail");
+  if (detail && !detail.hidden) {
+    detail.replaceChildren(
+      el("a", { href: "/" }, "Back to catalog"),
+      el("h2", {}, "Couldn't load skill details"),
+      el("p", {}, `Couldn't load catalog data (${err.message}). Try reloading this page.`),
+    );
+    return;
+  }
   const grid = document.querySelector("#skills-grid");
   if (grid) grid.replaceChildren();
   const empty = document.querySelector("#empty-state");
@@ -45,11 +54,130 @@ function renderAll() {
   applyTheme(state.config.theme);
   renderHero();
   renderBuildBadge();
+  renderFooter();
+  if (showRoute()) return;
+  restoreFilters();
   renderSignal();
   renderTagCloud();
   renderCards();
-  renderFooter();
   applyFilters();
+}
+
+function skillRoute(pathname) {
+  if (pathname === "/" || pathname === "/index.html") return { catalog: true };
+  const match = /^\/skills\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/.exec(pathname);
+  return { catalog: false, name: match ? match[1] : null };
+}
+
+function showRoute() {
+  const route = skillRoute(window.location.pathname);
+  const catalog = document.querySelector("#catalog");
+  const detail = document.querySelector("#skill-detail");
+  catalog.hidden = !route.catalog;
+  detail.hidden = route.catalog;
+  document.querySelector(".hero-actions").hidden = !route.catalog;
+  document.querySelector(".signal-panel").hidden = !route.catalog;
+  document.querySelector(".hero").classList.toggle("detail-header", !route.catalog);
+  setAttr(".skip-link", "href", route.catalog ? "#catalog" : "#skill-detail");
+  setText(".skip-link", route.catalog ? "Skip to the catalog" : "Skip to skill details");
+  if (route.catalog) return false;
+  const skill = state.skills.find((item) => item.name === route.name);
+  if (skill) {
+    document.title = `${skill.title} | ${state.config.title}`;
+    setText("#hub-title", skill.title);
+    setText("#hub-tagline", state.config.title);
+    setAttr("meta[name=description]", "content", skill.description);
+    renderSkillDetail(skill);
+  } else {
+    document.title = `Skill not found | ${state.config.title}`;
+    setText("#hub-title", "Skill not found");
+    setText("#hub-tagline", "This address does not match a skill in the catalog.");
+    detail.replaceChildren(el("a", { href: "/" }, "Back to catalog"));
+  }
+  return true;
+}
+
+function detailSection(title, text, className = "") {
+  const section = el("section", { class: `detail-section ${className}`.trim() });
+  section.append(el("h2", {}, title), el("p", {}, text));
+  return section;
+}
+
+function renderSkillDetail(skill) {
+  const detail = document.querySelector("#skill-detail");
+  detail.replaceChildren(el("a", { href: "/" }, "Back to catalog"));
+  detail.append(
+    detailSection("What it does", skill.description, "detail-purpose"),
+    detailSection("When to use", skill.whenToUse, "detail-usage"),
+  );
+  const provenance = el("section", { class: "detail-section detail-provenance" });
+  provenance.append(el("h2", {}, "Where it comes from"));
+  const facts = el("dl", { class: "provenance" });
+  for (const [label, value] of [
+    ["Status", skill.agentSkill ? `${skill.kind} / project skill` : skill.kind],
+    ["Credited source", skill.source],
+    ["License", skill.license],
+    ...(skill.kind === "local" ? [["Hub repository", state.config.repo]] : []),
+  ]) {
+    const row = el("div", {});
+    row.append(el("dt", {}, label), el("dd", {}, value));
+    facts.append(row);
+  }
+  provenance.append(facts);
+  provenance.append(el("a", { href: skill.url, rel: "noreferrer" },
+    skill.kind === "local" ? "View hub source and supporting files" : "View upstream source"));
+  detail.append(provenance);
+  const install = el("section", { class: "detail-section detail-install" });
+  install.append(el("h2", {}, "Install"), createInstallRow(skill));
+  if (skill.footprint) install.append(createFootprint(skill.footprint));
+  detail.append(install);
+  const file = detailSection("Full skill file", skill.kind === "local"
+    ? "Complete SKILL.md, including frontmatter. This is the hub's build-time copy, not a live upstream version. Supporting files are available through the hub source link above."
+    : "The full skill file is not hosted in this hub. Read it at the upstream source.", "detail-content");
+  if (skill.kind === "local") {
+    const pre = el("pre", { class: "skill-file" });
+    pre.append(el("code", {}, skill.skillFile));
+    file.append(pre);
+  } else {
+    file.append(el("a", { href: skill.url, rel: "noreferrer" }, "Read skill upstream"));
+  }
+  detail.append(file);
+}
+
+function restoreFilters() {
+  const params = new URLSearchParams(window.location.search);
+  state.query = params.get("q") || "";
+  const kind = params.get("kind");
+  state.activeKind = ["local", "external"].includes(kind) ? kind : "all";
+  state.activeTag = params.get("tag") || "";
+  document.querySelector("#search").value = state.query;
+  updateFilterButtons();
+}
+
+function saveFilters() {
+  const url = new URL(window.location.href);
+  for (const [key, value] of [
+    ["q", state.query],
+    ["kind", state.activeKind === "all" ? "" : state.activeKind],
+    ["tag", state.activeTag],
+  ]) {
+    if (value) url.searchParams.set(key, value);
+    else url.searchParams.delete(key);
+  }
+  window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+}
+
+function updateFilterButtons() {
+  for (const [selector, key, activeValue] of [
+    [".filter", "kind", state.activeKind],
+    [".tag-filter", "tag", state.activeTag],
+  ]) {
+    document.querySelectorAll(selector).forEach((button) => {
+      const active = button.dataset[key] === activeValue;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+  }
 }
 
 function applyTheme(theme) {
@@ -121,6 +249,7 @@ function renderTagCloud() {
     btn.addEventListener("click", () => toggleTag(tag));
     cloud.append(btn);
   }
+  updateFilterButtons();
 }
 
 function renderCards() {
@@ -153,7 +282,9 @@ function createCard(skill, idx) {
   );
   card.append(topline);
 
-  card.append(el("h3", {}, skill.title));
+  const title = el("h3", {});
+  title.append(el("a", { href: `/skills/${skill.name}` }, skill.title));
+  card.append(title);
   card.append(el("p", { class: "description" }, skill.description));
 
   const tags = el("div", { class: "tags" });
@@ -162,17 +293,7 @@ function createCard(skill, idx) {
 
   if (skill.footprint) card.append(createFootprint(skill.footprint));
 
-  const installRow = el("div", { class: "install-row" });
-  installRow.append(el("code", {}, skill.installCommand));
-  const copyBtn = el(
-    "button",
-    { class: "copy-button", type: "button", "aria-label": `Copy install command for ${skill.title}` },
-    "Copy",
-  );
-  copyBtn.dataset.command = skill.installCommand;
-  copyBtn.addEventListener("click", () => copyInstall(copyBtn));
-  installRow.append(copyBtn);
-  card.append(installRow);
+  card.append(createInstallRow(skill));
 
   const footer = el("div", { class: "card-footer" });
   footer.append(el("a", { href: skill.url, rel: "noreferrer" }, "Source"));
@@ -180,6 +301,20 @@ function createCard(skill, idx) {
   card.append(footer);
 
   return card;
+}
+
+function createInstallRow(skill) {
+  const installRow = el("div", { class: "install-row" });
+  installRow.append(el("code", {}, skill.installCommand));
+  const copyBtn = el(
+    "button",
+    { class: "copy-button", type: "button", "aria-label": `Copy install command for ${skill.title}`, "aria-live": "polite" },
+    "Copy",
+  );
+  copyBtn.dataset.command = skill.installCommand;
+  copyBtn.addEventListener("click", () => copyInstall(copyBtn));
+  installRow.append(copyBtn);
+  return installRow;
 }
 
 // Context footprint: what a skill costs the agent, by when it is loaded (estimated tokens).
@@ -250,21 +385,15 @@ async function copyInstall(btn) {
 
 function toggleTag(tag) {
   state.activeTag = state.activeTag === tag ? "" : tag;
-  document.querySelectorAll(".tag-filter").forEach((b) => {
-    const active = b.dataset.tag === state.activeTag;
-    b.classList.toggle("active", active);
-    b.setAttribute("aria-pressed", String(active));
-  });
+  updateFilterButtons();
+  saveFilters();
   applyFilters();
 }
 
 function setKind(kind) {
   state.activeKind = kind;
-  document.querySelectorAll(".filter").forEach((b) => {
-    const active = b.dataset.kind === kind;
-    b.classList.toggle("active", active);
-    b.setAttribute("aria-pressed", String(active));
-  });
+  updateFilterButtons();
+  saveFilters();
   applyFilters();
 }
 
@@ -294,13 +423,14 @@ function wireStaticEvents() {
   const search = document.querySelector("#search");
   search.addEventListener("input", (e) => {
     state.query = e.target.value;
+    saveFilters();
     applyFilters();
   });
   document.querySelectorAll(".filter").forEach((btn) => {
     btn.addEventListener("click", () => setKind(btn.dataset.kind));
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "/" && document.activeElement !== search) {
+    if (e.key === "/" && !document.querySelector("#catalog").hidden && document.activeElement !== search) {
       e.preventDefault();
       search.focus();
     }

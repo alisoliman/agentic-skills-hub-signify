@@ -417,7 +417,7 @@ def load_display_metadata() -> dict[str, Any]:
     return data
 
 
-def load_local_skills(config: Mapping[str, Any]) -> list[dict[str, Any]]:
+def load_local_skills(config: Mapping[str, Any], source_ref: str = "main") -> list[dict[str, Any]]:
     display_path = CATALOG_DIR / "local-skills.json"
     display_metadata = load_display_metadata()
     agent_skills = set(agent_skill_names(config))
@@ -438,12 +438,14 @@ def load_local_skills(config: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "name": name,
                 "title": display.get("title") or metadata.get("title") or name.replace("-", " ").title(),
                 "description": display.get("description") or str(metadata["description"]),
+                "whenToUse": display.get("whenToUse"),
+                "skillFile": text,
                 "license": display.get("license") or metadata.get("license") or "Unspecified",
                 "source": display.get("source") or metadata.get("source") or "local",
                 "kind": "local",
                 "agentSkill": name in agent_skills,
                 "tags": normalize_tags(display.get("tags", metadata.get("tags"))),
-                "url": f"https://github.com/{config['repo']}/tree/main/skills/{folder}",
+                "url": f"https://github.com/{config['repo']}/tree/{source_ref}/skills/{folder}",
                 "installCommand": local_skill_install_command(config["repo"], name),
                 "footprint": context_footprint(skill_file.parent, metadata, body),
             }
@@ -471,6 +473,7 @@ def load_external_skills() -> list[dict[str, Any]]:
                 "name": item["name"],
                 "title": item["title"],
                 "description": item["description"],
+                "whenToUse": item.get("whenToUse"),
                 "license": item.get("license", "See source"),
                 "source": item.get("source") or item["package"],
                 "kind": "external",
@@ -517,17 +520,24 @@ def build_metadata(environ: Optional[Mapping[str, str]] = None) -> dict[str, Any
 
 
 def build_hub(config: Mapping[str, Any], environ: Optional[Mapping[str, str]] = None) -> dict[str, Any]:
+    metadata = build_metadata(environ)
     skills = sorted(
-        load_local_skills(config) + load_external_skills(),
+        load_local_skills(config, metadata["sha"] or "main") + load_external_skills(),
         key=lambda item: (0 if item["kind"] == "local" else 1, item["title"].lower()),
     )
     names = [skill["name"] for skill in skills]
     duplicates = sorted({name for name in names if names.count(name) > 1})
     if duplicates:
         raise ValueError(f"Skill names must be unique across the catalog: {', '.join(duplicates)}")
+    for skill in skills:
+        if not NAME_PATTERN.fullmatch(skill["name"]):
+            raise ValueError(f"Skill name must be a lowercase slug: {skill['name']!r}")
+        guidance = skill.get("whenToUse")
+        if not isinstance(guidance, str) or not guidance.strip():
+            raise ValueError(f"Skill '{skill['name']}' needs curated whenToUse guidance")
     return {
         "schemaVersion": 2,
-        "build": build_metadata(environ),
+        "build": metadata,
         "config": public_config(config),
         "skills": skills,
     }
