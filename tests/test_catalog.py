@@ -82,6 +82,8 @@ class CatalogTests(unittest.TestCase):
                     (source / "SKILL.md").read_text(encoding="utf-8"), source / "SKILL.md"
                 )
                 self.assertEqual(metadata["name"], skill["name"])
+                self.assertEqual(skill["skillFile"], catalog.read_text(source / "SKILL.md"))
+                self.assertTrue(skill["whenToUse"].strip())
                 self.assertEqual(
                     skill["installCommand"], f"gh skill install {self.config['repo']} {skill['name']}"
                 )
@@ -145,6 +147,8 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual(urlparse(skill["url"]).scheme, "https")
             self.assertTrue(skill["installCommand"].startswith("gh skill install "))
             self.assertNotIn("installs", skill)
+            self.assertNotIn("skillFile", skill)
+            self.assertTrue(skill["whenToUse"].strip())
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write(root / "external-skills.json", '[{"name": "incomplete"}]')
@@ -294,13 +298,33 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(len(names), len(set(names)))
         for skill in hub["skills"]:
             with self.subTest(skill=skill["name"]):
-                for key in ("name", "title", "description", "source", "license", "url", "installCommand"):
+                for key in ("name", "title", "description", "whenToUse", "source", "license", "url", "installCommand"):
                     self.assertIsInstance(skill[key], str)
                     self.assertTrue(skill[key])
                 self.assertTrue(skill["installCommand"].startswith("gh skill install "))
                 self.assertTrue(all(isinstance(tag, str) and tag for tag in skill["tags"]))
                 if skill["kind"] == "local":
                     self.assertEqual(set(skill["footprint"]), {"indexTokens", "bodyTokens", "files", "fileTokens"})
+                    self.assertIn("/tree/abcdef1234567/skills/", skill["url"])
+                    self.assertEqual(
+                        skill["skillFile"],
+                        catalog.read_text(catalog.SKILLS_DIR / skill["name"] / "SKILL.md"),
+                    )
+
+    def test_detail_routes_require_unique_slug_names_and_curated_guidance(self):
+        skill = {"name": "sample", "title": "Sample", "kind": "local", "whenToUse": "Before a task."}
+        cases = [
+            ([skill, dict(skill, kind="external")], "must be unique"),
+            ([dict(skill, name="../sample")], "lowercase slug"),
+            ([dict(skill, whenToUse="  ")], "curated whenToUse"),
+            ([dict(skill, whenToUse=None)], "curated whenToUse"),
+        ]
+        for skills, message in cases:
+            with self.subTest(message=message), patch.object(
+                catalog, "load_local_skills", return_value=skills
+            ), patch.object(catalog, "load_external_skills", return_value=[]):
+                with self.assertRaisesRegex(ValueError, message):
+                    catalog.build_hub(self.config, {})
 
 
 class SiteTests(unittest.TestCase):

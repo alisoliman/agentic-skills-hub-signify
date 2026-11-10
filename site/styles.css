@@ -29,6 +29,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   min-height: 100vh;
   margin: 0;
@@ -261,6 +265,57 @@ code {
 .catalog-shell {
   padding: 16px;
   margin-bottom: 32px;
+}
+
+.hero.detail-header {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.detail-header h1 {
+  overflow-wrap: anywhere;
+}
+
+.detail-shell {
+  padding: 24px;
+  overflow-wrap: anywhere;
+}
+
+.detail-section {
+  margin-top: 24px;
+}
+
+.detail-section h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+.detail-section p {
+  margin: 0 0 12px;
+}
+
+.provenance {
+  display: grid;
+  gap: 8px;
+}
+
+.provenance dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.provenance dd {
+  margin: 0;
+}
+
+.skill-file {
+  max-width: 100%;
+  margin: 16px 0 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .toolbar {
