@@ -1,0 +1,25 @@
+{
+  "grilling": {
+    "description": "Stress-test a plan in rounds of questions. Explore facts yourself, put each decision to the user, and wait for shared understanding before acting.",
+    "license": "MIT",
+    "source": "mattpocock/skills",
+    "tags": ["requirements", "planning", "demo"]
+  },
+  "frontend-design": {
+    "description": "Design and implement distinctive, polished interfaces. Use it to improve a working page's typography, layout, color, and visual hierarchy.",
+    "license": "Apache-2.0",
+    "source": "anthropics/skills",
+    "tags": ["design", "frontend", "demo"]
+  },
+  "ship-it": {
+    "description": "Ship the current change for review: run the tests, commit to a feature branch, open or update the pull request, and wait for its live preview URL.",
+    "license": "MIT",
+    "source": "this hub",
+    "tags": ["github", "deploy", "workflow", "demo"]
+  },
+  "microsoft-foundry": {
+    "description": "Deploy, evaluate, and manage Microsoft Foundry agents. Reference content only for this demo; using it requires Azure access and the Azure MCP tools.",
+    "source": "Microsoft",
+    "tags": ["azure", "agents", "reference"]
+  }
+}

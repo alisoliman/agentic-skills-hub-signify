@@ -1,0 +1,15 @@
+{
+  "name": "agentic-skills-hub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo agentic skills hub for the GitHub Innovation Series session on agent skills.",
+  "scripts": {
+    "build": "node scripts/py.js scripts/build_catalog.py",
+    "start": "npm run build && node scripts/py.js scripts/serve.py",
+    "dev": "uv run --frozen python scripts/dev.py",
+    "test": "node scripts/py.js -m unittest discover -s tests && node --check site/app.js && node --test tests/test_filters.js tests/test_links.js tests/test_cards.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

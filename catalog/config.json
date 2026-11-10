@@ -1,0 +1,19 @@
+{
+  "customer": "Signify",
+  "eyebrow": "Signify · GitHub Innovation Series",
+  "title": "Signify Agentic Skills Hub",
+  "tagline": "Reusable agent skills for Signify engineering teams: find one, install it with one command, improve it together.",
+  "owner": "Signify Engineering",
+  "repo": "alisoliman/agentic-skills-hub-signify",
+  "hubUrl": "https://purple-coast-00715c003.5.azurestaticapps.net",
+  "primaryCta": "Install a skill. Improve the hub. Repeat.",
+  "featuredSkill": "grilling",
+  "theme": {
+    "accent": "#00e487"
+  },
+  "agentSkills": [
+    "grilling",
+    "frontend-design",
+    "ship-it"
+  ]
+}

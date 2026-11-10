@@ -1,0 +1,115 @@
+name: Deploy hub
+
+# push to main          -> test, build with production metadata, deploy to production
+# pull request opened,
+#   synchronized, reopened -> test, build with preview metadata, deploy a staging environment;
+#                            the Static Web Apps bot comments the preview URL on the PR
+# pull request closed   -> close that staging environment
+# The Free plan allows 3 staging environments at a time: close pull requests you are done with.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Test
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Run tests
+        run: npm test
+
+  deploy:
+    name: ${{ github.event_name == 'pull_request' && 'Deploy preview' || 'Deploy production' }}
+    needs: test
+    if: github.event.action != 'closed' && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write # the Static Web Apps action comments the preview URL
+      statuses: write # the deployed URL becomes a commit status that ship-it reads
+    env:
+      HAS_DEPLOY_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN != '' }}
+      HUB_ENV: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
+      HUB_BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      HUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Skip without a deployment token
+        if: env.HAS_DEPLOY_TOKEN != 'true'
+        run: echo "::notice title=Deploy skipped::Add the AZURE_STATIC_WEB_APPS_API_TOKEN repository secret to deploy (see README.md)."
+
+      - uses: actions/checkout@v7
+        if: env.HAS_DEPLOY_TOKEN == 'true'
+
+      - uses: actions/setup-python@v7
+        if: env.HAS_DEPLOY_TOKEN == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Build hub.json (${{ env.HUB_ENV }})
+        if: env.HAS_DEPLOY_TOKEN == 'true'
+        run: python scripts/build_catalog.py
+
+      - name: Deploy to Azure Static Web Apps
+        id: deploy
+        if: env.HAS_DEPLOY_TOKEN == 'true'
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: site
+          output_location: ""
+          skip_app_build: true
+
+      - name: Publish the deployed URL as a commit status
+        if: steps.deploy.outputs.static_web_app_url != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SITE_URL: ${{ steps.deploy.outputs.static_web_app_url }}
+          STATUS_CONTEXT: ${{ github.event_name == 'pull_request' && 'hub/preview' || 'hub/production' }}
+        run: |
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${HUB_BUILD_SHA}" \
+            -f state=success -f context="${STATUS_CONTEXT}" -f target_url="${SITE_URL}" \
+            -f description="${HUB_ENV} deployed" > /dev/null
+          echo "### Hub ${HUB_ENV}: ${SITE_URL}" >> "$GITHUB_STEP_SUMMARY"
+
+  close-preview:
+    name: Close preview
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HAS_DEPLOY_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN != '' }}
+    steps:
+      - name: Skip without a deployment token
+        if: env.HAS_DEPLOY_TOKEN != 'true'
+        run: echo "::notice title=Close skipped::No AZURE_STATIC_WEB_APPS_API_TOKEN secret, so there is no preview to close."
+
+      - name: Close the staging environment
+        if: env.HAS_DEPLOY_TOKEN == 'true'
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: close

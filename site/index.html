@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agentic Skills Hub</title>
+  <meta name="description" content="Find a reusable agent skill, install it with one command, and improve it with your team.">
+  <meta property="og:title" content="Agentic Skills Hub">
+  <meta property="og:description" content="Find a reusable agent skill, install it with one command, and improve it with your team.">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#catalog">Skip to the catalog</a>
+  <header class="hero">
+    <div class="hero-copy">
+      <div class="hero-meta">
+        <p class="eyebrow" id="hub-eyebrow">GitHub Innovation Series · Agentic Skills</p>
+        <a class="build-badge" id="build-badge" data-env="local">Local build</a>
+      </div>
+      <h1 id="hub-title">Agentic Skills Hub</h1>
+      <p class="tagline" id="hub-tagline">Loading…</p>
+      <div class="hero-actions">
+        <a class="primary-action" href="#catalog">Browse skills</a>
+        <code id="hub-install-cmd">gh skill install …</code>
+      </div>
+    </div>
+    <aside class="signal-panel" aria-label="Catalog summary">
+      <span class="panel-label">Catalog signal</span>
+      <strong id="signal-total">–</strong>
+      <span>skills ready to install</span>
+      <dl>
+        <div><dt>Local</dt><dd id="signal-local">–</dd></div>
+        <div><dt>External</dt><dd id="signal-external">–</dd></div>
+        <div><dt>Owner</dt><dd id="signal-owner">–</dd></div>
+      </dl>
+    </aside>
+  </header>
+
+  <main id="catalog" class="catalog-shell">
+    <section class="toolbar" aria-label="Catalog controls">
+      <label class="search-box">
+        <span>Search the hub</span>
+        <input id="search" type="search" placeholder="Try: foundry, github, design, docs" autocomplete="off">
+      </label>
+      <div class="filter-row" role="group" aria-label="Filter by kind">
+        <button type="button" class="filter active" data-kind="all" aria-pressed="true">All</button>
+        <button type="button" class="filter" data-kind="local" aria-pressed="false">Local</button>
+        <button type="button" class="filter" data-kind="external" aria-pressed="false">External</button>
+      </div>
+    </section>
+
+    <section class="tag-cloud" id="tag-cloud" aria-label="Filter by tag"></section>
+
+    <div class="result-line">
+      <span id="result-count" aria-live="polite">Loading…</span>
+      <span id="hub-cta"></span>
+    </div>
+
+    <section class="skills-grid" id="skills-grid" aria-label="Skills"></section>
+
+    <p class="empty-state" id="empty-state" hidden>No skills match that filter yet.</p>
+
+    <p class="footprint-legend">
+      <strong>Context footprint</strong> (estimated tokens, about four characters each):
+      <em>Always</em> is the name and description every session carries,
+      <em>On use</em> is the SKILL.md body loaded when the skill is picked,
+      <em>Files</em> are supporting files read only when needed.
+    </p>
+  </main>
+
+  <footer class="footer">
+    <p id="hub-notice">Demo content for a GitHub Innovation Series session.</p>
+    <p class="footer-meta">Generated from <code>skills/*/SKILL.md</code> and <code>catalog/*.json</code> · <a id="repo-link" href="https://github.com/alisoliman/agentic-skills-hub-signify" rel="noreferrer">View repository</a></p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
