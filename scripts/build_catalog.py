@@ -438,6 +438,8 @@ def load_local_skills(config: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "name": name,
                 "title": display.get("title") or metadata.get("title") or name.replace("-", " ").title(),
                 "description": display.get("description") or str(metadata["description"]),
+                "usageDescription": str(metadata["description"]),
+                "skillFile": text,
                 "license": display.get("license") or metadata.get("license") or "Unspecified",
                 "source": display.get("source") or metadata.get("source") or "local",
                 "kind": "local",
