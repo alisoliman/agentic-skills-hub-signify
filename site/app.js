@@ -31,6 +31,19 @@ async function bootstrap() {
 }
 
 function renderError(err) {
+  const route = routeForPath(currentPathname());
+  if (route.type !== "catalog") {
+    const catalog = document.querySelector("#catalog");
+    const detail = document.querySelector("#skill-detail");
+    if (catalog) catalog.hidden = true;
+    if (detail) {
+      detail.hidden = false;
+      setPageMode(true);
+      renderNotFoundPage(`Couldn't load catalog data (${err.message}).`);
+    }
+    return;
+  }
+
   const grid = document.querySelector("#skills-grid");
   if (grid) grid.replaceChildren();
   const empty = document.querySelector("#empty-state");
@@ -50,6 +63,7 @@ function renderAll() {
   renderCards();
   renderFooter();
   applyFilters();
+  renderCurrentPage();
 }
 
 function applyTheme(theme) {
@@ -135,12 +149,199 @@ function renderFooter() {
   setText("#hub-notice", state.config.notice);
 }
 
+function currentPathname() {
+  return typeof window === "undefined" ? "/" : window.location.pathname;
+}
+
+function routeForPath(pathname) {
+  if (!pathname.startsWith("/skills/")) return { type: "catalog" };
+  const slug = pathname.slice("/skills/".length).replace(/\/+$/, "");
+  if (!slug || slug.includes("/")) return { type: "not-found" };
+  try {
+    return { type: "skill", name: decodeURIComponent(slug) };
+  } catch {
+    return { type: "not-found" };
+  }
+}
+
+function skillPath(name) {
+  return `/skills/${encodeURIComponent(name)}`;
+}
+
+function setPageMode(isDetail) {
+  const hero = document.querySelector("#hub-hero");
+  if (hero) hero.classList.toggle("detail-mode", isDetail);
+
+  const skipLink = document.querySelector("#skip-link");
+  if (skipLink) {
+    skipLink.setAttribute("href", isDetail ? "#skill-detail" : "#catalog");
+    skipLink.textContent = isDetail ? "Skip to skill details" : "Skip to the catalog";
+  }
+
+  const browseLink = document.querySelector(".primary-action");
+  if (browseLink) {
+    browseLink.setAttribute("href", isDetail ? "/#catalog" : "#catalog");
+    browseLink.textContent = isDetail ? "Browse all skills" : "Browse skills";
+  }
+}
+
+function setPageMetadata(title, description) {
+  document.title = title;
+  const descriptionMeta = document.querySelector("meta[name=description]");
+  if (descriptionMeta) descriptionMeta.setAttribute("content", description);
+  const ogTitle = document.querySelector("meta[property='og:title']");
+  if (ogTitle) ogTitle.setAttribute("content", title);
+  const ogDescription = document.querySelector("meta[property='og:description']");
+  if (ogDescription) ogDescription.setAttribute("content", description);
+}
+
+function renderCurrentPage() {
+  const catalog = document.querySelector("#catalog");
+  const detail = document.querySelector("#skill-detail");
+  if (!catalog || !detail) return;
+
+  const route = routeForPath(currentPathname());
+  const isDetail = route.type !== "catalog";
+  catalog.hidden = isDetail;
+  detail.hidden = !isDetail;
+  setPageMode(isDetail);
+
+  if (!isDetail) {
+    setPageMetadata(state.config.title, state.config.tagline);
+    return;
+  }
+
+  if (route.type === "not-found") {
+    renderNotFoundPage("That skill page could not be found.");
+    setPageMetadata(`Skill not found · ${state.config.title}`, "The requested skill could not be found.");
+    return;
+  }
+
+  const skill = state.skills.find((item) => item.name === route.name);
+  if (!skill) {
+    renderNotFoundPage(`No skill named “${route.name}” is in this catalog.`);
+    setPageMetadata(`Skill not found · ${state.config.title}`, "The requested skill could not be found.");
+    return;
+  }
+
+  renderSkillPage(skill);
+  setPageMetadata(`${skill.title} · ${state.config.title}`, skill.description);
+}
+
+function renderNotFoundPage(message) {
+  const detail = document.querySelector("#skill-detail");
+  if (!detail) return;
+
+  const backLink = el("a", { class: "detail-back", href: "/#catalog" }, "← Browse all skills");
+  const card = el("section", { class: "detail-card" });
+  card.append(el("h2", { class: "detail-title" }, "Skill not found"));
+  card.append(el("p", {}, message));
+  detail.replaceChildren(backLink, card);
+}
+
+function renderSkillPage(skill) {
+  const detail = document.querySelector("#skill-detail");
+  if (!detail) return;
+
+  const backLink = el("a", { class: "detail-back", href: "/#catalog" }, "← Browse all skills");
+  const card = el("article", { class: "detail-card" });
+  const header = el("header", { class: "detail-heading" });
+  const kindLabel = skill.agentSkill ? `${skill.kind} · project skill` : skill.kind;
+  header.append(el("p", { class: "detail-kind" }, kindLabel));
+  header.append(el("h2", { class: "detail-title" }, skill.title));
+  card.append(header);
+
+  const navigation = el("nav", { class: "detail-nav", "aria-label": "On this skill page" });
+  for (const [id, label] of [
+    ["what-it-does", "01 / What it does"],
+    ["when-to-use", "02 / When to use"],
+    ["full-skill-file", "03 / Full skill file"],
+    ["install", "Install"],
+  ]) {
+    navigation.append(el("a", { href: `#${id}` }, label));
+  }
+  card.append(navigation);
+
+  const overview = detailSection("What it does", "what-it-does", "01");
+  overview.append(el("p", {}, skill.description));
+  card.append(overview);
+
+  const usage = detailSection("When to use", "when-to-use", "02");
+  if (skill.kind === "local") {
+    usage.append(el("p", {}, skill.usageDescription || skill.description));
+  } else {
+    usage.append(el("p", {}, "For full usage guidance, refer to the upstream skill source."));
+    usage.append(el("a", { href: skill.url, rel: "noreferrer" }, "Read the external source"));
+  }
+  card.append(usage);
+
+  const provenance = detailSection("Where it comes from", "provenance");
+  const metadata = el("dl", { class: "detail-meta" });
+  appendMetadata(metadata, "Kind", kindLabel);
+  appendMetadata(metadata, "Source", skill.source || "Unspecified");
+  appendMetadata(metadata, "License", skill.license || "Unspecified");
+  appendMetadata(
+    metadata,
+    "Source link",
+    el("a", { href: skill.url, rel: "noreferrer" }, "View source"),
+  );
+  if (skill.package) appendMetadata(metadata, "Package", skill.package);
+  provenance.append(metadata);
+  card.append(provenance);
+
+  if (skill.tags.length) {
+    const tags = el("div", { class: "tags detail-tags" });
+    skill.tags.forEach((tag) => tags.append(el("span", { class: "tag" }, tag)));
+    card.append(tags);
+  }
+
+  const fullFile = detailSection("Full skill file", "full-skill-file", "03");
+  if (skill.kind === "local" && skill.skillFile) {
+    const markdown = el("div", { class: "skill-markdown" });
+    renderSkillMarkdown(skill.skillFile, markdown, skill);
+    fullFile.append(markdown);
+  } else if (skill.kind === "external") {
+    fullFile.append(el("p", {}, "The full skill file is maintained at its external source."));
+    fullFile.append(el("a", { href: skill.url, rel: "noreferrer" }, "Read the skill at its source"));
+  } else {
+    fullFile.append(el("p", {}, "The full skill file is unavailable in this catalog build."));
+  }
+  card.append(fullFile);
+
+  const install = detailSection("Install", "install");
+  install.append(createInstallRow(skill));
+  card.append(install);
+  detail.replaceChildren(backLink, card);
+}
+
+function detailSection(title, id, step) {
+  const section = el("section", { class: "detail-section", id, "aria-labelledby": `${id}-heading` });
+  const heading = el("h3", { id: `${id}-heading` }, title);
+  if (step) heading.setAttribute("data-step", step);
+  section.append(heading);
+  return section;
+}
+
+function appendMetadata(list, label, value) {
+  const row = el("div");
+  row.append(el("dt", {}, label));
+  const data = el("dd");
+  if (typeof value === "string") data.textContent = value;
+  else data.append(value);
+  row.append(data);
+  list.append(row);
+}
+
 function searchText(skill) {
   return [skill.name, skill.title, skill.description, skill.kind, ...skill.tags].join(" ").toLowerCase();
 }
 
 function createCard(skill, idx) {
-  const card = el("article", { class: "skill-card", style: `--delay: ${idx * 45}ms` });
+  const card = el("article", {
+    class: "skill-card",
+    style: `--delay: ${Math.min(idx, 7) * 45}ms`,
+    "aria-labelledby": `skill-title-${idx}`,
+  });
   card.dataset.kind = skill.kind;
   card.dataset.name = skill.name;
   card.dataset.tags = JSON.stringify(skill.tags);
@@ -153,7 +354,9 @@ function createCard(skill, idx) {
   );
   card.append(topline);
 
-  card.append(el("h3", {}, skill.title));
+  const title = el("h3", { id: `skill-title-${idx}` });
+  title.append(el("a", { href: skillPath(skill.name) }, skill.title));
+  card.append(title);
   card.append(el("p", { class: "description" }, skill.description));
 
   const tags = el("div", { class: "tags" });
@@ -162,6 +365,18 @@ function createCard(skill, idx) {
 
   if (skill.footprint) card.append(createFootprint(skill.footprint));
 
+  card.append(createInstallRow(skill));
+
+  const footer = el("div", { class: "card-footer" });
+  footer.append(el("a", { class: "read-skill", href: skillPath(skill.name), "aria-label": `Read ${skill.title}` }, "Read skill"));
+  footer.append(el("a", { href: skill.url, rel: "noreferrer" }, "Source"));
+  if (skill.source) footer.append(el("span", { class: "source-name" }, skill.source));
+  card.append(footer);
+
+  return card;
+}
+
+function createInstallRow(skill) {
   const installRow = el("div", { class: "install-row" });
   installRow.append(el("code", {}, skill.installCommand));
   const copyBtn = el(
@@ -172,14 +387,319 @@ function createCard(skill, idx) {
   copyBtn.dataset.command = skill.installCommand;
   copyBtn.addEventListener("click", () => copyInstall(copyBtn));
   installRow.append(copyBtn);
-  card.append(installRow);
+  return installRow;
+}
 
-  const footer = el("div", { class: "card-footer" });
-  footer.append(el("a", { href: skill.url, rel: "noreferrer" }, "Source"));
-  if (skill.source) footer.append(el("span", { class: "source-name" }, skill.source));
-  card.append(footer);
+function renderSkillMarkdown(markdown, container, skill) {
+  const source = String(markdown).replace(/\r\n/g, "\n");
+  const frontmatter = /^---\n[\s\S]*?\n---(?=\n|$)\n?/.exec(source);
+  let body = source;
+  if (frontmatter) {
+    const pre = el("pre", { class: "skill-frontmatter" });
+    pre.append(el("code", {}, frontmatter[0].trimEnd()));
+    container.append(pre);
+    body = source.slice(frontmatter[0].length);
+  }
+  renderMarkdownBlocks(body.split("\n"), container, skill);
+}
 
-  return card;
+function renderMarkdownBlocks(lines, container, skill) {
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) {
+      index += 1;
+      continue;
+    }
+
+    const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence) {
+      const marker = fence[1];
+      const language = fence[2].trim().split(/\s+/, 1)[0];
+      const codeLines = [];
+      index += 1;
+      while (index < lines.length) {
+        const candidate = lines[index].trim();
+        const run = /^(`+|~+)/.exec(candidate);
+        if (run && run[1][0] === marker[0] && run[1].length >= marker.length && !candidate.slice(run[1].length).trim()) {
+          index += 1;
+          break;
+        }
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+      const code = el("code");
+      if (/^[a-z0-9_+-]+$/i.test(language)) code.className = `language-${language}`;
+      code.textContent = codeLines.join("\n");
+      const pre = el("pre");
+      pre.append(code);
+      container.append(pre);
+      continue;
+    }
+
+    const heading = /^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
+    if (heading) {
+      const level = Math.min(6, heading[1].length + 2);
+      const node = el(`h${level}`);
+      renderInlineMarkdown(heading[2], node, skill);
+      container.append(node);
+      index += 1;
+      continue;
+    }
+
+    if (index + 1 < lines.length && /^ {0,3}(=+|-+)\s*$/.test(lines[index + 1])) {
+      const level = lines[index + 1].trim().startsWith("=") ? 3 : 4;
+      const node = el(`h${level}`);
+      renderInlineMarkdown(line.trim(), node, skill);
+      container.append(node);
+      index += 2;
+      continue;
+    }
+
+    if (/^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/.test(line)) {
+      container.append(el("hr"));
+      index += 1;
+      continue;
+    }
+
+    if (/^ {0,3}>/.test(line)) {
+      const quoteLines = [];
+      while (index < lines.length && /^ {0,3}>/.test(lines[index])) {
+        quoteLines.push(lines[index].replace(/^ {0,3}> ?/, ""));
+        index += 1;
+      }
+      const quote = el("blockquote");
+      renderMarkdownBlocks(quoteLines, quote, skill);
+      container.append(quote);
+      continue;
+    }
+
+    const tableSeparator = index + 1 < lines.length ? markdownTableSeparator(lines[index + 1]) : null;
+    if (line.includes("|") && tableSeparator) {
+      index = renderMarkdownTable(lines, index, container, skill, tableSeparator);
+      continue;
+    }
+
+    if (markdownListItem(line)) {
+      index = renderMarkdownList(lines, index, container, skill);
+      continue;
+    }
+
+    if (/^(?: {4}|\t)\S/.test(line)) {
+      const codeLines = [];
+      while (index < lines.length && (/^(?: {4}|\t)/.test(lines[index]) || !lines[index].trim())) {
+        codeLines.push(lines[index].replace(/^(?: {4}|\t)/, ""));
+        index += 1;
+      }
+      const pre = el("pre");
+      pre.append(el("code", {}, codeLines.join("\n").trimEnd()));
+      container.append(pre);
+      continue;
+    }
+
+    const paragraphLines = [];
+    while (index < lines.length && lines[index].trim()) {
+      if (
+        paragraphLines.length > 0 &&
+        (/^ {0,3}(?:`{3,}|~{3,}|#{1,6}\s|>)/.test(lines[index]) ||
+          /^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/.test(lines[index]) ||
+          markdownListItem(lines[index]) ||
+          (index + 1 < lines.length && markdownTableSeparator(lines[index + 1]))
+        )
+      ) {
+        break;
+      }
+      if (paragraphLines.length && /^ {0,3}(?:=+|-+)\s*$/.test(lines[index])) break;
+      paragraphLines.push(lines[index].trim());
+      index += 1;
+    }
+    const paragraph = el("p");
+    renderInlineMarkdown(paragraphLines.join("\n"), paragraph, skill);
+    container.append(paragraph);
+  }
+}
+
+function markdownListItem(line) {
+  const match = /^([ \t]*)([-+*]|\d+[.)])\s+(.*)$/.exec(line);
+  if (!match) return null;
+  return {
+    indent: match[1].replace(/\t/g, "    ").length,
+    ordered: /^\d/.test(match[2]),
+    content: match[3],
+  };
+}
+
+function renderMarkdownList(lines, start, container, skill) {
+  const first = markdownListItem(lines[start]);
+  const list = el(first.ordered ? "ol" : "ul");
+  const baseIndent = first.indent;
+  let index = start;
+  let lastItem = null;
+  while (index < lines.length) {
+    if (!lines[index].trim()) {
+      let next = index + 1;
+      while (next < lines.length && !lines[next].trim()) next += 1;
+      const nextItem = next < lines.length ? markdownListItem(lines[next]) : null;
+      if (nextItem && nextItem.indent >= baseIndent) {
+        index = next;
+        continue;
+      }
+      break;
+    }
+
+    const item = markdownListItem(lines[index]);
+    if (!item || item.indent < baseIndent || (item.indent === baseIndent && item.ordered !== first.ordered)) break;
+    if (item.indent > baseIndent) {
+      if (!lastItem) break;
+      index = renderMarkdownList(lines, index, lastItem, skill);
+      continue;
+    }
+
+    const listItem = el("li");
+    renderInlineMarkdown(item.content, listItem, skill);
+    list.append(listItem);
+    lastItem = listItem;
+    index += 1;
+  }
+  container.append(list);
+  return index;
+}
+
+function splitMarkdownTableRow(line) {
+  let text = line.trim();
+  if (text.startsWith("|")) text = text.slice(1);
+  if (text.endsWith("|") && !text.endsWith("\\|")) text = text.slice(0, -1);
+  const cells = [];
+  let cell = "";
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] === "\\" && text[index + 1] === "|") {
+      cell += "|";
+      index += 1;
+    } else if (text[index] === "|") {
+      cells.push(cell.trim());
+      cell = "";
+    } else {
+      cell += text[index];
+    }
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+
+function markdownTableSeparator(line) {
+  if (!line.includes("|")) return null;
+  const cells = splitMarkdownTableRow(line);
+  if (cells.length < 2 || !cells.every((cell) => /^:?-{3,}:?$/.test(cell))) return null;
+  return cells.map((cell) => {
+    if (cell.startsWith(":") && cell.endsWith(":")) return "center";
+    if (cell.endsWith(":")) return "right";
+    if (cell.startsWith(":")) return "left";
+    return "";
+  });
+}
+
+function renderMarkdownTable(lines, start, container, skill, alignment) {
+  const table = el("table");
+  const head = el("thead");
+  const headerRow = el("tr");
+  const headers = splitMarkdownTableRow(lines[start]);
+  headers.forEach((text, index) => {
+    const cell = el("th");
+    if (alignment[index]) cell.setAttribute("style", `text-align: ${alignment[index]}`);
+    renderInlineMarkdown(text, cell, skill);
+    headerRow.append(cell);
+  });
+  head.append(headerRow);
+  table.append(head);
+
+  const body = el("tbody");
+  let index = start + 2;
+  while (index < lines.length && lines[index].includes("|") && lines[index].trim()) {
+    const row = el("tr");
+    const cells = splitMarkdownTableRow(lines[index]);
+    headers.forEach((_, cellIndex) => {
+      const cell = el("td");
+      if (alignment[cellIndex]) cell.setAttribute("style", `text-align: ${alignment[cellIndex]}`);
+      renderInlineMarkdown(cells[cellIndex] || "", cell, skill);
+      row.append(cell);
+    });
+    body.append(row);
+    index += 1;
+  }
+  table.append(body);
+
+  const wrapper = el("div", { class: "markdown-table-wrap" });
+  wrapper.append(table);
+  container.append(wrapper);
+  return index;
+}
+
+function renderInlineMarkdown(text, container, skill) {
+  const pattern = /(`+[^`]+?`+|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|\[[^\]]+\]\([^)]+\)|\*[^*\n]+\*|_[^_\n]+_)/g;
+  let cursor = 0;
+  let match;
+  while ((match = pattern.exec(text))) {
+    if (match.index > cursor) container.append(document.createTextNode(text.slice(cursor, match.index)));
+    const token = match[0];
+    if (token.startsWith("`")) {
+      const delimiter = /^`+/.exec(token)[0];
+      container.append(el("code", {}, token.slice(delimiter.length, -delimiter.length)));
+    } else if (token.startsWith("**") || token.startsWith("__")) {
+      const strong = el("strong");
+      renderInlineMarkdown(token.slice(2, -2), strong, skill);
+      container.append(strong);
+    } else if (token.startsWith("~~")) {
+      const deleted = el("del");
+      renderInlineMarkdown(token.slice(2, -2), deleted, skill);
+      container.append(deleted);
+    } else if (token.startsWith("[")) {
+      const link = /^\[([^\]]+)\]\((.+)\)$/.exec(token);
+      const target = link && /^(<[^>]+>|\S+)/.exec(link[2].trim());
+      const destination = target ? target[1].replace(/^<|>$/g, "") : "";
+      const href = markdownHref(destination, skill);
+      if (link && href) {
+        const anchor = el("a", { href, rel: "noreferrer" });
+        renderInlineMarkdown(link[1], anchor, skill);
+        container.append(anchor);
+      } else if (link) {
+        renderInlineMarkdown(link[1], container, skill);
+      } else {
+        container.append(document.createTextNode(token));
+      }
+    } else {
+      const emphasis = el("em");
+      renderInlineMarkdown(token.slice(1, -1), emphasis, skill);
+      container.append(emphasis);
+    }
+    cursor = pattern.lastIndex;
+  }
+  if (cursor < text.length) container.append(document.createTextNode(text.slice(cursor)));
+}
+
+function markdownHref(destination, skill) {
+  if (/^(https?:\/\/|mailto:|#)/i.test(destination)) return destination;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(destination) || destination.startsWith("/") || destination.startsWith("//")) {
+    return null;
+  }
+  if (skill.kind !== "local" || !/^https:\/\/github\.com\/[^/]+\/[^/]+\/tree\/main\/skills\/[^/]+$/i.test(skill.url)) {
+    return null;
+  }
+
+  const suffixIndex = destination.search(/[?#]/);
+  const path = suffixIndex === -1 ? destination : destination.slice(0, suffixIndex);
+  const suffix = suffixIndex === -1 ? "" : destination.slice(suffixIndex);
+  const segments = [];
+  for (const segment of path.split("/")) {
+    if (!segment || segment === ".") continue;
+    if (segment === "..") {
+      if (!segments.length) return null;
+      segments.pop();
+    } else {
+      segments.push(encodeURIComponent(segment));
+    }
+  }
+  const base = skill.url.replace("/tree/", "/blob/");
+  return `${base}${segments.length ? `/${segments.join("/")}` : ""}${suffix}`;
 }
 
 // Context footprint: what a skill costs the agent, by when it is loaded (estimated tokens).

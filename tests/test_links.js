@@ -35,8 +35,12 @@ test("source links navigate in the current tab without requiring a popup", () =>
     context.skill = { name: "grilling", title: "Grilling", description: "Interview", tags: [], kind, url };
     const card = vm.runInContext("createCard(skill, 0)", context);
     const anchors = card.children.flatMap((child) => child.children).filter((child) => child.tag === "a");
-    assert.equal(anchors.length, 1);
-    const [source] = anchors;
+    assert.equal(anchors.length, 3);
+    const details = anchors.filter((anchor) => anchor.attributes.href === "/skills/grilling");
+    const source = anchors.find((anchor) => anchor.textContent === "Source");
+    assert.equal(details.length, 2);
+    for (const detail of details) assert.equal(detail.attributes.target ?? "_self", "_self");
+    assert.ok(source);
     assert.equal(source.attributes.href, url);
     assert.equal(source.attributes.target ?? "_self", "_self");
     assert.equal(source.attributes.rel, "noreferrer");

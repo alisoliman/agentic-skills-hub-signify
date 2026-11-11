@@ -10,8 +10,8 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <a class="skip-link" href="#catalog">Skip to the catalog</a>
-  <header class="hero">
+  <a class="skip-link" id="skip-link" href="#catalog">Skip to the catalog</a>
+  <header class="hero" id="hub-hero">
     <div class="hero-copy">
       <div class="hero-meta">
         <p class="eyebrow" id="hub-eyebrow">GitHub Innovation Series · Agentic Skills</p>
@@ -37,6 +37,13 @@
   </header>
 
   <main id="catalog" class="catalog-shell">
+    <div class="catalog-heading">
+      <div>
+        <p class="eyebrow">The skill library</p>
+        <h2>Find your next skill.</h2>
+      </div>
+      <p>Explore what it does. Know when to use it.<br>Read the skill, then make it yours.</p>
+    </div>
     <section class="toolbar" aria-label="Catalog controls">
       <label class="search-box">
         <span>Search the hub</span>
@@ -67,6 +74,8 @@
       <em>Files</em> are supporting files read only when needed.
     </p>
   </main>
+
+  <main id="skill-detail" class="detail-shell" aria-label="Skill details" hidden></main>
 
   <footer class="footer">
     <p id="hub-notice">Demo content for a GitHub Innovation Series session.</p>
