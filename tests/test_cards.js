@@ -120,6 +120,43 @@ test("skill card titles link to path-based detail pages", () => {
   assert.equal(title.children[0].attributes.href, "/skills/microsoft-foundry");
 });
 
+test("cards expose a named article and an explicit path to read the skill", () => {
+  const { context } = loadApp();
+  context.skill = foundry;
+  const card = vm.runInContext("createCard(skill, 2)", context);
+  const nodes = descendants(card);
+  const title = nodes.find((node) => node.tag === "h3");
+  assert.equal(card.attributes["aria-labelledby"], title.attributes.id);
+  const readLink = nodes.find((node) => node.tag === "a" && node.textContent === "Read skill");
+  assert.equal(readLink.attributes.href, "/skills/microsoft-foundry");
+  assert.equal(readLink.attributes["aria-label"], "Read Microsoft Foundry");
+  assert.ok(nodes.some((node) => node.tag === "a" && node.textContent === "Source" && node.attributes.href === foundry.url));
+});
+
+test("detail navigation connects purpose, usage, content and install to named sections", () => {
+  const { context, elements } = loadApp();
+  elements["#skill-detail"] = new Element("main");
+  context.skill = { ...foundry, usageDescription: "Use when building an agent.", skillFile: "# Guide\nAgent instructions." };
+  vm.runInContext("renderSkillPage(skill)", context);
+  const nodes = descendants(elements["#skill-detail"]);
+  const navigation = nodes.find((node) => node.tag === "nav");
+  assert.equal(navigation.attributes["aria-label"], "On this skill page");
+  assert.deepEqual(navigation.children.map((link) => link.attributes.href), [
+    "#what-it-does", "#when-to-use", "#full-skill-file", "#install",
+  ]);
+  for (const link of navigation.children) {
+    const section = nodes.find((node) => node.tag === "section" && `#${node.attributes.id}` === link.attributes.href);
+    assert.ok(section, `${link.attributes.href} must resolve to a section`);
+    assert.equal(section.attributes["aria-labelledby"], section.children[0].attributes.id);
+  }
+  const text = textOf(elements["#skill-detail"]);
+  assert.match(text, /Deploy and evaluate agents\./);
+  assert.match(text, /Use when building an agent\./);
+  assert.match(text, /Agent instructions\./);
+  assert.match(text, /Where it comes from/);
+  assert.match(text, /gh skill install octo-org\/hub microsoft-foundry/);
+});
+
 test("detail routes decode skill names and reject malformed paths", () => {
   const { context } = loadApp();
   const valid = vm.runInContext("routeForPath('/skills/microsoft-foundry')", context);

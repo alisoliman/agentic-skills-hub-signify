@@ -251,11 +251,22 @@ function renderSkillPage(skill) {
   header.append(el("h2", { class: "detail-title" }, skill.title));
   card.append(header);
 
-  const overview = detailSection("What it does");
+  const navigation = el("nav", { class: "detail-nav", "aria-label": "On this skill page" });
+  for (const [id, label] of [
+    ["what-it-does", "01 / What it does"],
+    ["when-to-use", "02 / When to use"],
+    ["full-skill-file", "03 / Full skill file"],
+    ["install", "Install"],
+  ]) {
+    navigation.append(el("a", { href: `#${id}` }, label));
+  }
+  card.append(navigation);
+
+  const overview = detailSection("What it does", "what-it-does", "01");
   overview.append(el("p", {}, skill.description));
   card.append(overview);
 
-  const usage = detailSection("When to use");
+  const usage = detailSection("When to use", "when-to-use", "02");
   if (skill.kind === "local") {
     usage.append(el("p", {}, skill.usageDescription || skill.description));
   } else {
@@ -264,7 +275,7 @@ function renderSkillPage(skill) {
   }
   card.append(usage);
 
-  const provenance = detailSection("Where it comes from");
+  const provenance = detailSection("Where it comes from", "provenance");
   const metadata = el("dl", { class: "detail-meta" });
   appendMetadata(metadata, "Kind", kindLabel);
   appendMetadata(metadata, "Source", skill.source || "Unspecified");
@@ -284,7 +295,7 @@ function renderSkillPage(skill) {
     card.append(tags);
   }
 
-  const fullFile = detailSection("Full skill file");
+  const fullFile = detailSection("Full skill file", "full-skill-file", "03");
   if (skill.kind === "local" && skill.skillFile) {
     const markdown = el("div", { class: "skill-markdown" });
     renderSkillMarkdown(skill.skillFile, markdown, skill);
@@ -297,15 +308,17 @@ function renderSkillPage(skill) {
   }
   card.append(fullFile);
 
-  const install = detailSection("Install");
+  const install = detailSection("Install", "install");
   install.append(createInstallRow(skill));
   card.append(install);
   detail.replaceChildren(backLink, card);
 }
 
-function detailSection(title) {
-  const section = el("section", { class: "detail-section" });
-  section.append(el("h3", {}, title));
+function detailSection(title, id, step) {
+  const section = el("section", { class: "detail-section", id, "aria-labelledby": `${id}-heading` });
+  const heading = el("h3", { id: `${id}-heading` }, title);
+  if (step) heading.setAttribute("data-step", step);
+  section.append(heading);
   return section;
 }
 
@@ -324,7 +337,11 @@ function searchText(skill) {
 }
 
 function createCard(skill, idx) {
-  const card = el("article", { class: "skill-card", style: `--delay: ${idx * 45}ms` });
+  const card = el("article", {
+    class: "skill-card",
+    style: `--delay: ${Math.min(idx, 7) * 45}ms`,
+    "aria-labelledby": `skill-title-${idx}`,
+  });
   card.dataset.kind = skill.kind;
   card.dataset.name = skill.name;
   card.dataset.tags = JSON.stringify(skill.tags);
@@ -337,7 +354,7 @@ function createCard(skill, idx) {
   );
   card.append(topline);
 
-  const title = el("h3");
+  const title = el("h3", { id: `skill-title-${idx}` });
   title.append(el("a", { href: skillPath(skill.name) }, skill.title));
   card.append(title);
   card.append(el("p", { class: "description" }, skill.description));
@@ -351,6 +368,7 @@ function createCard(skill, idx) {
   card.append(createInstallRow(skill));
 
   const footer = el("div", { class: "card-footer" });
+  footer.append(el("a", { class: "read-skill", href: skillPath(skill.name), "aria-label": `Read ${skill.title}` }, "Read skill"));
   footer.append(el("a", { href: skill.url, rel: "noreferrer" }, "Source"));
   if (skill.source) footer.append(el("span", { class: "source-name" }, skill.source));
   card.append(footer);
