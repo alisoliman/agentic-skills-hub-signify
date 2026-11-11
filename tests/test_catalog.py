@@ -82,6 +82,8 @@ class CatalogTests(unittest.TestCase):
                     (source / "SKILL.md").read_text(encoding="utf-8"), source / "SKILL.md"
                 )
                 self.assertEqual(metadata["name"], skill["name"])
+                self.assertEqual(skill["usageDescription"], str(metadata["description"]))
+                self.assertEqual(skill["skillFile"], catalog.read_text(source / "SKILL.md"))
                 self.assertEqual(
                     skill["installCommand"], f"gh skill install {self.config['repo']} {skill['name']}"
                 )
@@ -145,6 +147,8 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual(urlparse(skill["url"]).scheme, "https")
             self.assertTrue(skill["installCommand"].startswith("gh skill install "))
             self.assertNotIn("installs", skill)
+            self.assertNotIn("skillFile", skill)
+            self.assertNotIn("usageDescription", skill)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write(root / "external-skills.json", '[{"name": "incomplete"}]')
@@ -301,6 +305,10 @@ class BuildTests(unittest.TestCase):
                 self.assertTrue(all(isinstance(tag, str) and tag for tag in skill["tags"]))
                 if skill["kind"] == "local":
                     self.assertEqual(set(skill["footprint"]), {"indexTokens", "bodyTokens", "files", "fileTokens"})
+                    self.assertTrue(skill["skillFile"].startswith("---\n"))
+                    self.assertTrue(skill["usageDescription"])
+                else:
+                    self.assertNotIn("skillFile", skill)
 
 
 class SiteTests(unittest.TestCase):
